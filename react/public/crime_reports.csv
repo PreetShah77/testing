@@ -1,0 +1,22 @@
+id,type,description,latitude,longitude,timestamp,anonymous,media_url
+1,theft,wefefwef,23.006203874784106,72.66355624713457,2024-06-29T16:48:15.206595,False,http://localhost:5050/static/uploads/logo.jpg
+2,murder,eev,23.006581,72.663708,2024-06-29T16:52:10.386333,True,http://localhost:5050/static/uploads/logo.jpg
+3,theft,In a house,23.0064467,72.6637488,2024-06-29T21:07:11.082367,True,http://localhost:5050/static/uploads/logo.jpg
+4,homocide,murder of 2 people,22.9802405,72.61793099999998,2024-07-01T19:47:53.348029,False,http://localhost:5050/static/uploads/logo.jpg
+5,murder,2 jaan nu murder,22.97990850023452,72.61803168902439,2024-07-01T22:03:40.403867,False,http://localhost:5050/static/uploads/logo.jpg
+6,theft,chori ho gayi,23.022505,72.5713621,2024-07-04T15:17:34.455705,False,http://localhost:5050/static/uploads/logo.jpg
+7,fight,22.9797851,72.6181472,2024-07-04T15:21:49.415351,False,http://localhost:5050/static/uploads/logo.jpg
+8,domestic abuse,wohhhhcsaa,23.022505,72.5713621,2024-07-04T15:25:36.579659,False,http://localhost:5050/static/uploads/logo.jpg
+9,traffic violation,hdbcka,23.022505,72.5713621,2024-07-04T15:43:56.909529,True,http://localhost:5050/static/uploads/logo.jpg
+10,robbery,theft,22.98006025,72.61804749999999,2024-07-05T13:32:21.427022,True,http://localhost:5050/static/uploads/logo.jpg
+11,theft,car is stolen,22.980089500000002,72.618092,2024-07-05T13:37:08.756787,True,http://localhost:5050/static/uploads/logo.jpg
+12,homocide,sbsr,22.97992455202312,72.61818034461068,2024-07-05T15:57:11.658418,False,http://localhost:5050/static/uploads/WhatsApp_Image_2024-06-15_at_23.01.42_74263f4d.jpg
+13,muder,murder of 2 people,23.022505,72.5713621,2024-07-05T16:08:37.650255,True,http://localhost:5050/static/uploads/WIN_20231130_15_06_30_Pro.jpg
+14,accident,rger,22.9948,72.4976,2024-07-05T16:22:02.859476,False,http://localhost:5050/static/uploads/WhatsApp_Image_2024-06-16_at_22.20.20_1fa28050.jpg
+15,vandalism,vvsddvv,22.979914824549475,72.61819841550493,2024-07-05T16:26:30.626321,False,http://localhost:5050/static/uploads/Screenshot_2024-06-20_214442.png
+19,theft,egw4,22.980088552298316,72.61786006953565,2024-07-15T16:36:35.363513,False,http://localhost:5050/static/uploads/resume.png
+16,Assault,assault near preet,23.0162432,72.6761472,2024-07-16T17:20:37.810417,False,"User ID: user_2jI7sDGKUBWXSalQcupvOqHM98S, Email: mmanthan780@gmail.com",http://localhost:5050/static/uploads/MEET3.jpeg
+17,Assault,assault near preet,23.0064502,72.6637588,2024-07-16T17:21:45.996952,False,"User ID: user_2jI7sDGKUBWXSalQcupvOqHM98S, Email: mmanthan780@gmail.com",http://localhost:5050/static/uploads/MEET3.jpeg
+19,Assault,assault with preet,23.0162432,72.6761472,2024-07-16T17:33:13.290198,False,http://localhost:5050/static/uploads/MEET3.jpeg
+20,Burglary,chor mill gaya,23.0064484,72.6637585,2024-07-16T21:15:28.480799,False,http://localhost:5050/static/uploads/meet10.png
+21,Fraud,fraud ho gaya,23.0162432,72.6761472,2024-07-16T21:22:04.312864,False,http://localhost:5050/static/uploads/MEET.png
