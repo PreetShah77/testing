@@ -25,7 +25,7 @@ db_config = {
     'database': 'crimereports'
 }
 
-CSV_FILE_PATH = 'C:/Users/preet/OneDrive/Desktop/Main Projects/cr/Main Page with sign in/react/public/crime_reports.csv'
+
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
@@ -59,6 +59,7 @@ def create_table():
         longitude FLOAT NOT NULL,
         timestamp DATETIME NOT NULL,
         anonymous BOOLEAN NOT NULL,
+        user_info TEXT,
         media_url VARCHAR(200)
     )
     """
@@ -73,26 +74,6 @@ def create_table():
         if connection.is_connected():
             cursor.close()
             close_db_connection(connection)
-
-def write_to_csv(report):
-    file_exists = os.path.isfile(CSV_FILE_PATH)
-    
-    with open(CSV_FILE_PATH, mode='a', newline='') as file:
-        writer = csv.writer(file)
-        
-        if not file_exists:
-            writer.writerow(['id', 'type', 'description', 'latitude', 'longitude', 'timestamp', 'anonymous', 'media_url'])
-        
-        writer.writerow([
-            report['id'],
-            report['type'],
-            report['description'],
-            report['latitude'],
-            report['longitude'],
-            report['timestamp'],
-            report['anonymous'],
-            report['media_url']
-        ])
 
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
@@ -112,6 +93,50 @@ def get_reports():
             cursor.close()
             close_db_connection(connection)
 
+@app.route('/api/crimes', methods=['GET'])
+def get_crimes():
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            search = request.args.get('search', '')
+            sql = f"""
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info 
+                FROM crime_reports 
+                WHERE type LIKE %s OR description LIKE %s
+            """
+            cursor.execute(sql, (f'%{search}%', f'%{search}%'))
+            crimes = cursor.fetchall()
+            return jsonify(crimes)
+    except Exception as e:
+        print(f"Error fetching data: {e}")
+        return jsonify({'error': 'Failed to fetch data'}), 500
+    finally:
+        connection.close()
+
+
+@app.route('/api/crimes_for_map', methods=['GET'])
+def get_crimes_for_map():
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = """
+                SELECT id, type, description, latitude, longitude, timestamp, media_url
+                FROM crime_reports 
+            """
+            cursor.execute(sql)
+            crimes = cursor.fetchall()
+            
+            # Convert timestamp to string to make it JSON serializable
+            for crime in crimes:
+                crime['timestamp'] = crime['timestamp'].isoformat()
+            
+            return jsonify(crimes)
+    except Exception as e:
+        print(f"Error fetching crimes for map: {e}")
+        return jsonify({'error': 'Failed to fetch crimes for map'}), 500
+    finally:
+        connection.close()
+
 @app.route('/api/reports', methods=['POST'])
 def create_report():
     connection = create_db_connection()
@@ -126,23 +151,30 @@ def create_report():
         longitude = request.form.get('longitude')
         anonymous = request.form.get('anonymous', 'false').lower() == 'true'
 
+        # Always handle user info, even for anonymous reports
+        user_id = request.form.get('userId')
+        user_email = request.form.get('userEmail')
+        user_name = request.form.get('username')
+        user_phone = request.form.get('phonenumber')
+        user_info = f"User ID: {user_id}, Email: {user_email}, Name: {user_name}, Phone-number: {user_phone}"
+
         # Handle file upload
         media_url = None
         if 'media' in request.files:
-            file = request.files['media']
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                media_url = url_for('static', filename=f'uploads/{filename}', _external=True)
+                file = request.files['media']
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    file.save(file_path)
+                    media_url = f"http://localhost:5050/static/uploads/{filename}" 
 
         timestamp = datetime.now()
 
         # Insert into database
         cursor = connection.cursor()
         insert_query = """
-        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, media_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, user_info, media_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(insert_query, (
             type,
@@ -151,6 +183,7 @@ def create_report():
             longitude,
             timestamp,
             anonymous,
+            user_info,
             media_url
         ))
         connection.commit()
@@ -163,10 +196,11 @@ def create_report():
             'longitude': longitude,
             'timestamp': timestamp.isoformat(),
             'anonymous': anonymous,
+            'user_info': user_info if not anonymous else None,
             'media_url': media_url
         }
 
-        write_to_csv(new_report)
+
 
         return jsonify(new_report), 201
 
@@ -177,26 +211,61 @@ def create_report():
             cursor.close()
             close_db_connection(connection)
 
-@app.route('/api/crimes', methods=['GET'])
-def get_crimes():
+@app.route('/api/solve_case/<int:case_id>', methods=['PUT'])
+def solve_case(case_id):
     try:
         connection = pymysql.connect(**db_config)
-        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
-            search = request.args.get('search', '')
-            sql = f"""
-                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url 
-                FROM crime_reports 
-                WHERE type LIKE %s OR description LIKE %s
-            """
-            cursor.execute(sql, (f'%{search}%', f'%{search}%'))
-            crimes = cursor.fetchall()
-            return jsonify(crimes)
+        with connection.cursor() as cursor:
+            sql = "UPDATE crime_reports SET status = 'solved' WHERE id = %s"
+            cursor.execute(sql, (case_id,))
+            connection.commit()
+        return jsonify({'message': 'Case marked as solved'}), 200
     except Exception as e:
-        print(f"Error fetching data: {e}")
-        return jsonify({'error': 'Failed to fetch data'}), 500
+        print(f"Error solving case: {e}")
+        return jsonify({'error': 'Failed to mark case as solved'}), 500
     finally:
         connection.close()
 
+@app.route('/api/police_dashboard', methods=['GET'])
+def get_police_dashboard():
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = """
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url,
+                CASE WHEN anonymous = 0 THEN user_info ELSE NULL END as user_info, status
+                FROM crime_reports 
+                WHERE status = 'active'
+            """
+            cursor.execute(sql)
+            reports = cursor.fetchall()
+            return jsonify(reports)
+    except Exception as e:
+        print(f"Error fetching police dashboard reports: {e}")
+        return jsonify({'error': 'Failed to fetch police dashboard reports'}), 500
+    finally:
+        connection.close()
+
+@app.route('/api/user_reports/<user_email>', methods=['GET'])
+def get_user_reports(user_email):
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql = """
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info, status
+                FROM crime_reports 
+                WHERE user_info LIKE %s
+            """
+            cursor.execute(sql, (f'%{user_email}%',))
+            reports = cursor.fetchall()
+            return jsonify(reports)
+    except Exception as e:
+        print(f"Error fetching user reports: {e}")
+        return jsonify({'error': 'Failed to fetch user reports'}), 500
+    finally:
+        connection.close()
+
+        
 @app.route('/static/uploads/<path:filename>')
 def serve_image(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)

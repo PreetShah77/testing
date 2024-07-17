@@ -110,6 +110,13 @@ function Header() {
                     </button>
                   </Link>
                 </li>
+                <li>
+                  <Link to='/myreport' style={{textDecoration: 'none'}}>
+                    <button className='sign-up-btn' style={{color: "#61dafb"}}>
+                      My Reports
+                    </button>
+                  </Link>
+                </li>
               </>
             )}
           </ul>

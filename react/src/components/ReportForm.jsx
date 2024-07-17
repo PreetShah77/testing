@@ -1,19 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
+import { useUser } from "@clerk/clerk-react";
 import '../styles/ReportForm.css';
 
-const ReportForm = ({ onReportSubmitted }) => {
-  const { register, handleSubmit, reset, formState: { isSubmitting, errors } } = useForm();
+const ReportForm = ({ onReportSubmitted = () => {} }) => {
+  const { user } = useUser();
+  const { register, handleSubmit, reset, watch, formState: { isSubmitting, errors } } = useForm();
   const [location, setLocation] = useState(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [fileName, setFileName] = useState('');
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
+  const [showOtherCrimeType, setShowOtherCrimeType] = useState(false);
+
+  const crimeType = watch('type');
+
+  useEffect(() => {
+    setShowOtherCrimeType(crimeType === 'Other');
+  }, [crimeType]);
 
   const resetForm = useCallback(() => {
     reset();
     setFileName('');
     setLocation(null);
+    setShowOtherCrimeType(false);
   }, [reset]);
 
   useEffect(() => {
@@ -56,11 +66,17 @@ const ReportForm = ({ onReportSubmitted }) => {
 
     try {
       const formData = new FormData();
-      formData.append('type', data.type);
+      formData.append('type', data.type === 'Other' ? data.otherCrimeType : data.type);
       formData.append('description', data.description);
       formData.append('latitude', location.latitude);
       formData.append('longitude', location.longitude);
       formData.append('anonymous', data.anonymous);
+      
+      if (!data.anonymous || data.anonymous && user) {
+        formData.append('userId', user.id);
+        formData.append('userEmail', user.primaryEmailAddress.emailAddress);
+        formData.append('username', user.fullName);
+      }
       
       if (data.media && data.media[0]) {
         formData.append('media', data.media[0]);
@@ -72,13 +88,16 @@ const ReportForm = ({ onReportSubmitted }) => {
         }
       });
       
-      onReportSubmitted(response.data);
+      if (typeof onReportSubmitted === 'function') {
+        onReportSubmitted(response.data);
+      }
       setIsFormSubmitted(true);
     } catch (error) {
       console.error('Error submitting report:', error);
+      alert('An error occurred while submitting the report. Please try again.');
     }
   };
-
+  
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       setFileName(e.target.files[0].name);
@@ -96,16 +115,37 @@ const ReportForm = ({ onReportSubmitted }) => {
         </div>
       ) : (
         <form onSubmit={handleSubmit(onSubmit)} className="report-form">
-          {/* ... (form fields remain unchanged) */}
           <div className="form-group">
             <label htmlFor="type">Crime Type</label>
-            <input 
+            <select 
               id="type" 
-              {...register('type', { required: 'Crime type is required' })} 
-              placeholder="e.g., Theft, Assault" 
-            />
+              {...register('type', { required: 'Crime type is required' })}
+            >
+              <option value="">Select a crime type</option>
+              <option value="Theft">Theft</option>
+              <option value="Assault">Assault</option>
+              <option value="Burglary">Burglary</option>
+              <option value="Vandalism">Vandalism</option>
+              <option value="Fraud">Fraud</option>
+              <option value="Drug-related">Drug-related</option>
+              <option value="Harassment">Harassment</option>
+              <option value="Robbery">Robbery</option>
+              <option value="Domestic Violence">Domestic Violence</option>
+              <option value="Other">Other</option>
+            </select>
             {errors.type && <span className="error-message">{errors.type.message}</span>}
           </div>
+          {showOtherCrimeType && (
+            <div className="form-group">
+              <label htmlFor="otherCrimeType">Specify Crime Type</label>
+              <input 
+                id="otherCrimeType" 
+                {...register('otherCrimeType', { required: 'Please specify the crime type' })} 
+                placeholder="Enter the specific crime type" 
+              />
+              {errors.otherCrimeType && <span className="error-message">{errors.otherCrimeType.message}</span>}
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="description">Description</label>
             <textarea 
@@ -127,7 +167,7 @@ const ReportForm = ({ onReportSubmitted }) => {
               type="file" 
               id="media" 
               {...register('media', { required: 'Media file is required' })} 
-              accept="image/,video/" 
+              accept="image/*,video/*" 
               onChange={handleFileChange}
               className="file-input"
             />

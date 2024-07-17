@@ -140,3 +140,47 @@
     transform: translateY(0);
   }
 }
+
+/* Add these new styles to your existing ReportForm.css */
+
+.form-group select {
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+  width: 100%;
+  background-color: white;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Style for the "Other" crime type input */
+#otherCrimeType {
+  margin-top: 0.5rem;
+}
+
+/* Animation for the "Other" crime type input */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-group:has(#otherCrimeType) {
+  animation: slideDown 0.3s ease-out;
+}
