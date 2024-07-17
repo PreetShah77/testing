@@ -7,7 +7,7 @@ import csv
 from datetime import datetime
 import os
 import pymysql.cursors
-
+from werkzeug.utils import secure_filename
 app = Flask(__name__)
 CORS(app)
 
@@ -137,6 +137,9 @@ def get_crimes_for_map():
     finally:
         connection.close()
 
+import g4f
+from g4f import Provider
+
 @app.route('/api/reports', methods=['POST'])
 def create_report():
     connection = create_db_connection()
@@ -161,20 +164,23 @@ def create_report():
         # Handle file upload
         media_url = None
         if 'media' in request.files:
-                file = request.files['media']
-                if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    file.save(file_path)
-                    media_url = f"http://localhost:5050/static/uploads/{filename}" 
+            file = request.files['media']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                media_url = f"http://localhost:5050/static/uploads/{filename}" 
 
         timestamp = datetime.now()
+
+        # Use g4f to determine crime severity
+        severity = get_crime_severity(type, description)
 
         # Insert into database
         cursor = connection.cursor()
         insert_query = """
-        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, user_info, media_url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, user_info, media_url, severity)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(insert_query, (
             type,
@@ -184,7 +190,8 @@ def create_report():
             timestamp,
             anonymous,
             user_info,
-            media_url
+            media_url,
+            severity
         ))
         connection.commit()
 
@@ -197,20 +204,33 @@ def create_report():
             'timestamp': timestamp.isoformat(),
             'anonymous': anonymous,
             'user_info': user_info if not anonymous else None,
-            'media_url': media_url
+            'media_url': media_url,
+            'severity': severity
         }
-
-
 
         return jsonify(new_report), 201
 
     except Error as e:
         return jsonify({"error": str(e)}), 500
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
-            close_db_connection(connection)
+            connection.close()
 
+def get_crime_severity(type, description):
+    prompt = f"Given the crime type: '{type}' and description: '{description}', classify the severity as HIGH, MEDIUM, or LOW. Respond with only the severity level."
+    try:
+        response = g4f.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        severity = response.strip().upper()
+        if severity not in ["HIGH", "MEDIUM", "LOW"]:
+            raise ValueError("Unexpected severity level")
+        return severity
+    except Exception as e:
+        print(f"Error in determining severity: {str(e)}")
+        return "UNKNOWN"
 @app.route('/api/solve_case/<int:case_id>', methods=['PUT'])
 def solve_case(case_id):
     try:
@@ -232,7 +252,7 @@ def get_police_dashboard():
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
             sql = """
-                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url,
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, severity,
                 CASE WHEN anonymous = 0 THEN user_info ELSE NULL END as user_info, status
                 FROM crime_reports 
                 WHERE status = 'active'

@@ -16,7 +16,7 @@ ChartJS.register(
   Legend
 );
 
-const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeTypes }) => {
+const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeTypes, severityFilter, setSeverityFilter }) => {
   return (
     <div className="filters-container">
       <select
@@ -35,6 +35,16 @@ const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeType
         onChange={(e) => setStartDate(e.target.value)}
         className="filter-date"
       />
+      <select
+        value={severityFilter}
+        onChange={(e) => setSeverityFilter(e.target.value)}
+        className="filter-select"
+      >
+        <option value="">All Severities</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="LOW">Low</option>
+      </select>
     </div>
   );
 };
@@ -45,21 +55,25 @@ const Dashboard = () => {
   const [view, setView] = useState('dashboard');
   const [typeFilter, setTypeFilter] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [severityFilter, setSeverityFilter] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
     fetchCrimes();
-  }, [search, typeFilter, startDate]);
+  }, [search, typeFilter, startDate, severityFilter]);
 
   const fetchCrimes = async () => {
     try {
       const response = await axios.get('http://localhost:5050/api/police_dashboard', {
-        params: { search, type: typeFilter, startDate},
+        params: { search, type: typeFilter, startDate, severity: severityFilter },
       });
       setCrimes(response.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     }
   };
+
   const handleSolveCase = async (id) => {
     try {
       await axios.put(`http://localhost:5050/api/solve_case/${id}`);
@@ -69,13 +83,34 @@ const Dashboard = () => {
     }
   };
 
-  const filteredCrimes = crimes.filter((crime) => {
-    const crimeDate = new Date(crime.timestamp);
-    return (
-      (!typeFilter || crime.type === typeFilter) &&
-      (!startDate || crimeDate >= new Date(startDate)) 
-    );
-  });
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
+  const filteredCrimes = crimes
+    .filter((crime) => {
+      const crimeDate = new Date(crime.timestamp);
+      return (
+        (!typeFilter || crime.type === typeFilter) &&
+        (!startDate || crimeDate >= new Date(startDate)) &&
+        (!severityFilter || crime.severity === severityFilter)
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy) {
+        if (sortOrder === 'asc') {
+          return a[sortBy] > b[sortBy] ? 1 : -1;
+        } else {
+          return a[sortBy] < b[sortBy] ? 1 : -1;
+        }
+      }
+      return 0;
+    });
 
   const crimeTypes = filteredCrimes.reduce((acc, crime) => {
     acc[crime.type] = (acc[crime.type] || 0) + 1;
@@ -152,6 +187,8 @@ const Dashboard = () => {
               startDate={startDate}
               setStartDate={setStartDate}
               crimeTypes={crimeTypes}
+              severityFilter={severityFilter}
+              setSeverityFilter={setSeverityFilter}
             />
             <div className="stats-container">
               <div className="chart-container">
@@ -185,22 +222,20 @@ const Dashboard = () => {
               startDate={startDate}
               setStartDate={setStartDate}
               crimeTypes={crimeTypes}
+              severityFilter={severityFilter}
+              setSeverityFilter={setSeverityFilter}
             />
             <div className="crime-table-container">
               <table className="crime-table" bgcolor="#ffffff">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>Timestamp</th>
-                    <th>Anonymous</th>
-                    <th>User Info</th>
-                    <th>Media URL</th>
+                    {['ID', 'Type', 'Description', 'Latitude', 'Longitude', 'Timestamp', 'Anonymous', 'User Info', 'Media URL', 'Severity', 'Status'].map((header) => (
+                      <th key={header} onClick={() => handleSort(header.toLowerCase())}>
+                        {header}
+                        {sortBy === header.toLowerCase() && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
+                      </th>
+                    ))}
                     <th>Get There</th>
-                    <th>Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -222,6 +257,8 @@ const Dashboard = () => {
                           '-'
                         )}
                       </td>
+                      <td>{crime.severity}</td>
+                      <td>{crime.status}</td>
                       <td>
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${crime.latitude},${crime.longitude}`}
@@ -232,12 +269,11 @@ const Dashboard = () => {
                           Get There
                         </a>
                       </td>
-                      <td>{crime.status}</td>
-                    <td>
-                      {crime.status === 'active' && (
-                        <button onClick={() => handleSolveCase(crime.id)}>Mark as Solved</button>
-                      )}
-                    </td>
+                      <td>
+                        {crime.status === 'active' && (
+                          <button onClick={() => handleSolveCase(crime.id)}>Mark as Solved</button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
