@@ -8,6 +8,13 @@ from datetime import datetime
 import os
 import pymysql.cursors
 from werkzeug.utils import secure_filename
+import g4f
+from g4f import Provider
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+import base64
 app = Flask(__name__)
 CORS(app)
 
@@ -75,6 +82,38 @@ def create_table():
             cursor.close()
             close_db_connection(connection)
 
+def send_email(to_email, subject, body):
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    sender_email = "preetshah0707@gmail.com"
+    sender_password = "halwqybnedqhxpql"
+
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = to_email
+    message["Subject"] = subject
+    message.attach(MIMEText(body, "plain"))
+
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.ehlo()  # Can be omitted
+        server.starttls()
+        server.ehlo()  # Can be omitted
+        server.login(sender_email, sender_password)
+        text = message.as_string()
+        server.sendmail(sender_email, to_email, text)
+        print(f"Email sent successfully to {to_email}")
+    except smtplib.SMTPAuthenticationError as e:
+        print(f"SMTP Authentication Error: {str(e)}")
+    except smtplib.SMTPException as e:
+        print(f"SMTP Exception: {str(e)}")
+    except Exception as e:
+        print(f"Error sending email: {str(e)}")
+    finally:
+        try:
+            server.quit()
+        except:
+            pass
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
     connection = create_db_connection()
@@ -121,7 +160,7 @@ def get_crimes_for_map():
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
             sql = """
                 SELECT id, type, description, latitude, longitude, timestamp, media_url
-                FROM crime_reports 
+                FROM crime_reports WHERE status = 'active'
             """
             cursor.execute(sql)
             crimes = cursor.fetchall()
@@ -137,8 +176,6 @@ def get_crimes_for_map():
     finally:
         connection.close()
 
-import g4f
-from g4f import Provider
 
 @app.route('/api/reports', methods=['POST'])
 def create_report():
@@ -235,11 +272,53 @@ def get_crime_severity(type, description):
 def solve_case(case_id):
     try:
         connection = pymysql.connect(**db_config)
-        with connection.cursor() as cursor:
-            sql = "UPDATE crime_reports SET status = 'solved' WHERE id = %s"
-            cursor.execute(sql, (case_id,))
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            # First, get the case details
+            sql_select = "SELECT * FROM crime_reports WHERE id = %s"
+            cursor.execute(sql_select, (case_id,))
+            case = cursor.fetchone()
+
+            if not case:
+                return jsonify({'error': 'Case not found'}), 404
+
+            # Update the case status
+            sql_update = "UPDATE crime_reports SET status = 'solved' WHERE id = %s"
+            cursor.execute(sql_update, (case_id,))
             connection.commit()
-        return jsonify({'message': 'Case marked as solved'}), 200
+
+            # Extract user email from user_info
+            user_info = case['user_info']
+            user_email = None
+            if user_info:
+                email_start = user_info.find("Email: ") + 7
+                email_end = user_info.find(",", email_start)
+                user_email = user_info[email_start:email_end].strip()
+
+            if user_email:
+                # Prepare email content
+                subject = "Your Reported Crime Case Has Been Solved"
+                body = f"""
+                Dear User,
+
+                We are pleased to inform you that the crime case you reported has been solved.
+
+                Case Details:
+                ID: {case['id']}
+                Type: {case['type']}
+                Description: {case['description']}
+                Location: Latitude {case['latitude']}, Longitude {case['longitude']}
+                Reported on: {case['timestamp']}
+
+                Thank you for your cooperation in helping us maintain a safer community.
+
+                Best regards,
+                Your Local Police Department
+                """
+
+                # Send email
+                send_email(user_email, subject, body)
+
+            return jsonify({'message': 'Case marked as solved and user notified'}), 200
     except Exception as e:
         print(f"Error solving case: {e}")
         return jsonify({'error': 'Failed to mark case as solved'}), 500
@@ -299,6 +378,7 @@ def image_gallery():
         html += f'<p><a href="/uploads/{image}">{image}</a></p>'
     
     return html
+
 
 if __name__ == '__main__':
     create_table()

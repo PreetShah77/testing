@@ -7,7 +7,7 @@ import Layout from "./components/Layout";
 import NoMatch from "./components/NoMatch";
 import ReportForm from "./components/ReportForm";
 import Dashboard from "./components/Dashboard";
-import CrimeMap from "./components/crimemap";
+import CrimeMap from "./components/CrimeMap";
 import MyReports from './components/MyReports';
 import "./styles/index.css";
 

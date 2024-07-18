@@ -75,11 +75,13 @@ const Dashboard = () => {
   };
 
   const handleSolveCase = async (id) => {
-    try {
-      await axios.put(`http://localhost:5050/api/solve_case/${id}`);
-      fetchCrimes(); // Refresh the crime list
-    } catch (error) {
-      console.error('Error solving case:', error);
+    if (window.confirm("Are you sure you want to mark this case as solved?")) {
+      try {
+        await axios.put(`http://localhost:5050/api/solve_case/${id}`);
+        fetchCrimes(); // Refresh the crime list
+      } catch (error) {
+        console.error('Error solving case:', error);
+      }
     }
   };
 
