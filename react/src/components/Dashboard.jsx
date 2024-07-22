@@ -176,6 +176,7 @@ const Dashboard = () => {
         {view === 'dashboard' && (
           <>
             <h1>Crime Dashboard</h1>
+            <div className="search-filter-wrapper">
             <input
               type="text"
               placeholder="Search by type or description..."
@@ -192,25 +193,63 @@ const Dashboard = () => {
               severityFilter={severityFilter}
               setSeverityFilter={setSeverityFilter}
             />
-            <div className="stats-container">
-              <div className="chart-container">
-                <h2>Crime Statistics</h2>
-                <Bar data={crimeData} options={{ responsive: true, maintainAspectRatio: false }} />
-              </div>
-              <div className="chart-container">
-                <h2>Crime Distribution</h2>
-                <Pie data={pieData} options={{ responsive: true, maintainAspectRatio: false }} />
-              </div>
-              <div className="chart-container">
-                <h2>Crimes Over Time</h2>
-                <Line data={dateData} options={{ responsive: true, maintainAspectRatio: false }} />
-              </div>
             </div>
+            <div className="stats-container">
+  <div className="chart-container">
+    <h2>Crime Statistics</h2>
+    <div className="chart-wrapper">
+      <Bar data={crimeData} options={{ 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }} />
+    </div>
+  </div>
+          <div className="chart-container">
+            <h2>Crime Distribution</h2>
+            <div className="chart-wrapper">
+              <Pie data={pieData} options={{ 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'bottom',
+                    labels: {
+                      boxWidth: 10,
+                      font: {
+                        size: 10
+                      }
+                    }
+                  }
+                }
+              }} />
+            </div>
+          </div>
+          <div className="chart-container">
+            <h2>Crimes Over Time</h2>
+            <div className="chart-wrapper">
+              <Line data={dateData} options={{ 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false
+                  }
+                }
+              }} />
+            </div>
+          </div>
+        </div>
           </>
         )}
         {view === 'reported-crimes' && (
           <>
             <h1>Reported Crimes</h1>
+            <div className="search-filter-wrapper">
             <input
               type="text"
               placeholder="Search reported crimes..."
@@ -227,8 +266,9 @@ const Dashboard = () => {
               severityFilter={severityFilter}
               setSeverityFilter={setSeverityFilter}
             />
+            </div>
             <div className="crime-table-container">
-              <table className="crime-table" bgcolor="#ffffff">
+              <table className="crime-table">
                 <thead>
                   <tr>
                     {['ID', 'Type', 'Description', 'Latitude', 'Longitude', 'Timestamp', 'Anonymous', 'User Info', 'Media URL', 'Severity', 'Status'].map((header) => (
@@ -273,7 +313,7 @@ const Dashboard = () => {
                       </td>
                       <td>
                         {crime.status === 'active' && (
-                          <button onClick={() => handleSolveCase(crime.id)}>Mark as Solved</button>
+                          <button onClick={() => handleSolveCase(crime.id)} className='solve-case-btn'>Mark as Solved</button>
                         )}
                       </td>
                     </tr>

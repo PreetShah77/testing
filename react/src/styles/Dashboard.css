@@ -1,27 +1,41 @@
+:root {
+  --primary-color: #3399cc; /* Example primary color */
+  --secondary-color: #003366; /* Example secondary color */
+  --background-color: #f8f8f8; /* Example background color */
+  --text-color: #333333; /* Example text color */
+}
+
 .dashboard-container {
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  overflow: auto;
-  max-height: 100vh;
+  max-height: 800px;
+  margin: 6rem auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0, 51, 102, 0.1);
+  max-height: calc(100vh - 4rem); /* Adjust based on your header/footer height */
+  overflow-y: auto; /* Allow scrolling within the dashboard if needed */
 }
 
 h1, h2 {
   text-align: center;
   margin-bottom: 20px;
-  color: #333;
+  color: var(--primary-color);
 }
 
-.search-input {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 20px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 16px;
+.search-input,
+.filter-select,
+.filter-date {
+  background-color: var(--background-color);
+  border: 1px solid var(--secondary-color);
+  color: var(--text-color);
+  padding: 0.5rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+}
+
+.filter-select {
+  background-image: url("data:image/svg+xml;utf8,");
 }
 
 .buttons-container {
@@ -31,32 +45,39 @@ h1, h2 {
 }
 
 .buttons-container button {
-  padding: 10px 20px;
-  margin: 0 10px;
+  background-color: var(--primary-color);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 4px;
-  background-color: #007bff;
-  color: white;
+  border-radius: 5px;
+  margin: 0 10px;
   cursor: pointer;
-  font-size: 16px;
   transition: background-color 0.3s ease;
 }
 
 .buttons-container button:hover {
-  background-color: #0056b3;
+  background-color: var(--secondary-color);
 }
 
 .stats-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
   margin-bottom: 40px;
 }
 
 .chart-container {
-  width: 100%;
-  height: 300px;
+  flex: 1 1 48%;
+  background-color: var(--background-color);
+  box-shadow: 0 4px 6px rgba(0, 51, 102, 0.1);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.chart-container h2 {
+  color: var(--primary-color);
+  margin-bottom: 1rem;
 }
 
 .crime-table {
@@ -65,29 +86,49 @@ h1, h2 {
   margin-bottom: 20px;
 }
 
-.crime-table th, .crime-table td {
+.crime-table th,
+.crime-table td {
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--secondary-color);
   text-align: center;
 }
 
 .crime-table th {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.crime-table td {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.crime-table tr:nth-child(even) {
+  background-color: #f0f5fa;
 }
 
 .get-there-button {
-  color: #007bff;
+  color: var(--primary-color);
   text-decoration: none;
+  transition: color 0.3s ease;
 }
 
 .get-there-button:hover {
-  text-decoration: underline;
+  color: var(--secondary-color);
 }
 
-.crime-table-container {
-  overflow-y: auto;
-  max-height: 60vh;
+.solve-case-btn {
+  background-color: var(--primary-color);
+  color: #ffffff;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.solve-case-btn:hover {
+  background-color: var(--secondary-color);
 }
 
 .filters-container {
@@ -96,9 +137,13 @@ h1, h2 {
   margin-bottom: 20px;
 }
 
-.filter-select, .filter-date {
-  padding: 10px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  font-size: 16px;
+@media (max-width: 768px) {
+  .chart-container {
+    flex: 1 1 100%;
+  }
+
+  .filters-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
 }

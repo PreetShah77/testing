@@ -155,10 +155,12 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
             />
             {errors.description && <span className="error-message">{errors.description.message}</span>}
           </div>
-          <div className="form-group checkbox-group">
-            <input type="checkbox" id="anonymous" {...register('anonymous')} />
-            <label htmlFor="anonymous">Report Anonymously</label>
-          </div>
+          <div class="checkbox-group">
+  <div class="anonymous-checkbox">
+    <input type="checkbox" id="anonymous" name="anonymous" />
+    <label for="anonymous">Submit anonymously</label>
+  </div>
+</div>
           <div className="form-group file-input-group">
             <label htmlFor="media" className="file-input-label">
               {fileName || 'Choose File'}

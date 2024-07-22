@@ -4,12 +4,13 @@ import "./styles/App.css";
 function App() {
   return (
     <div className="app">
-      <video autoPlay loop muted className="background-video">
+      {/* <video autoPlay loop muted className="background-video">
         <source src="/india.mp4" type="video/mp4" />
         Your browser does not support the video tag.
-      </video>
+      </video> */}
+      <div className="video-overlay"></div>
       <div className="content">
-        <h1 style={{ color: "#61dafb" }}>Crime Watch</h1>
+        <h1>Crime Watch</h1>
         <p>
           An app to help citizens report crimes promptly and accurately. 
           It provides real-time updates on crime incidents, secure authentication for users, 
