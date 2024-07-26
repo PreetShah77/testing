@@ -51,7 +51,6 @@ const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeType
 
 const Dashboard = () => {
   const [crimes, setCrimes] = useState([]);
-  const [search, setSearch] = useState('');
   const [view, setView] = useState('dashboard');
   const [typeFilter, setTypeFilter] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -61,12 +60,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchCrimes();
-  }, [search, typeFilter, startDate, severityFilter]);
+  }, [typeFilter, startDate, severityFilter]);
 
   const fetchCrimes = async () => {
     try {
       const response = await axios.get('http://localhost:5050/api/police_dashboard', {
-        params: { search, type: typeFilter, startDate, severity: severityFilter },
+        params: { type: typeFilter, startDate, severity: severityFilter },
       });
       setCrimes(response.data);
     } catch (error) {
@@ -104,6 +103,10 @@ const Dashboard = () => {
       );
     })
     .sort((a, b) => {
+      // Prioritize SOS crimes
+      if (a.type === "SOS" && b.type !== "SOS") return -1;
+      if (b.type === "SOS" && a.type !== "SOS") return 1;
+      
       if (sortBy) {
         if (sortOrder === 'asc') {
           return a[sortBy] > b[sortBy] ? 1 : -1;
@@ -166,6 +169,22 @@ const Dashboard = () => {
     ],
   };
 
+  const downloadReports = async () => {
+    try {
+      const response = await axios.get('http://localhost:5050/api/download_crimes', {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'crime_reports.xlsx');
+      document.body.appendChild(link);
+      link.click();
+    } catch (error) {
+      console.error('Error downloading reports:', error);
+    }
+  };
+  
   return (
     <div className="dashboard-container">
       <div className="buttons-container">
@@ -177,108 +196,100 @@ const Dashboard = () => {
           <>
             <h1>Crime Dashboard</h1>
             <div className="search-filter-wrapper">
-            <input
-              type="text"
-              placeholder="Search by type or description..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="search-input"
-            />
-            <Filters
-              typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter}
-              startDate={startDate}
-              setStartDate={setStartDate}
-              crimeTypes={crimeTypes}
-              severityFilter={severityFilter}
-              setSeverityFilter={setSeverityFilter}
-            />
+              <Filters
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
+                startDate={startDate}
+                setStartDate={setStartDate}
+                crimeTypes={crimeTypes}
+                severityFilter={severityFilter}
+                setSeverityFilter={setSeverityFilter}
+              />
             </div>
             <div className="stats-container">
-  <div className="chart-container">
-    <h2>Crime Statistics</h2>
-    <div className="chart-wrapper">
-      <Bar data={crimeData} options={{ 
-        responsive: true, 
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false
-          }
-        }
-      }} />
-    </div>
-  </div>
-          <div className="chart-container">
-            <h2>Crime Distribution</h2>
-            <div className="chart-wrapper">
-              <Pie data={pieData} options={{ 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'bottom',
-                    labels: {
-                      boxWidth: 10,
-                      font: {
-                        size: 10
+              <div className="chart-container">
+                <h2>Crime Statistics</h2>
+                <div className="chart-wrapper">
+                  <Bar data={crimeData} options={{ 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
                       }
                     }
-                  }
-                }
-              }} />
+                  }} />
+                </div>
+              </div>
+              <div className="chart-container">
+                <h2>Crime Distribution</h2>
+                <div className="chart-wrapper">
+                  <Pie data={pieData} options={{ 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
+                        labels: {
+                          boxWidth: 10,
+                          font: {
+                            size: 10
+                          }
+                        }
+                      }
+                    }
+                  }} />
+                </div>
+              </div>
+              <div className="chart-container">
+                <h2>Crimes Over Time</h2>
+                <div className="chart-wrapper">
+                  <Line data={dateData} options={{ 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: false
+                      }
+                    }
+                  }} />
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="chart-container">
-            <h2>Crimes Over Time</h2>
-            <div className="chart-wrapper">
-              <Line data={dateData} options={{ 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    display: false
-                  }
-                }
-              }} />
-            </div>
-          </div>
-        </div>
           </>
         )}
         {view === 'reported-crimes' && (
           <>
             <h1>Reported Crimes</h1>
             <div className="search-filter-wrapper">
-            <input
-              type="text"
-              placeholder="Search reported crimes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="search-input"
-            />
-            <Filters
-              typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter}
-              startDate={startDate}
-              setStartDate={setStartDate}
-              crimeTypes={crimeTypes}
-              severityFilter={severityFilter}
-              setSeverityFilter={setSeverityFilter}
-            />
+              <Filters
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
+                startDate={startDate}
+                setStartDate={setStartDate}
+                crimeTypes={crimeTypes}
+                severityFilter={severityFilter}
+                setSeverityFilter={setSeverityFilter}
+              />
+            </div>
+            <div className="buttons-container">
+              <button onClick={downloadReports} className="download-button">Download Reports</button>
             </div>
             <div className="crime-table-container">
               <table className="crime-table">
                 <thead>
                   <tr>
-                    {['ID', 'Type', 'Description', 'Latitude', 'Longitude', 'Timestamp', 'Anonymous', 'User Info', 'Media URL', 'Severity', 'Status'].map((header) => (
-                      <th key={header} onClick={() => handleSort(header.toLowerCase())}>
-                        {header}
-                        {sortBy === header.toLowerCase() && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
-                      </th>
-                    ))}
-                    <th>Get There</th>
-                    <th>Action</th>
+                    <th onClick={() => handleSort('id')}>ID</th>
+                    <th onClick={() => handleSort('type')}>Type</th>
+                    <th onClick={() => handleSort('description')}>Description</th>
+                    <th onClick={() => handleSort('timestamp')}>Timestamp</th>
+                    <th onClick={() => handleSort('anonymous')}>Anonymous</th>
+                    <th onClick={() => handleSort('user_info')}>User Info</th>
+                    <th onClick={() => handleSort('media_url')}>Media URL</th>
+                    <th onClick={() => handleSort('severity')}>Severity</th>
+                    <th onClick={() => handleSort('status')}>Status</th>
+                    <th onClick={() => handleSort('area')}>Area</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -287,33 +298,16 @@ const Dashboard = () => {
                       <td>{crime.id}</td>
                       <td>{crime.type}</td>
                       <td>{crime.description}</td>
-                      <td>{crime.latitude}</td>
-                      <td>{crime.longitude}</td>
                       <td>{new Date(crime.timestamp).toLocaleString()}</td>
                       <td>{crime.anonymous ? 'Yes' : 'No'}</td>
-                      <td>{crime.anonymous ? 'Anonymous' : crime.user_info}</td>
-                      <td>
-                        {crime.media_url ? (
-                          <a href={crime.media_url} target="_blank" rel="noopener noreferrer">Link</a>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
+                      <td>{crime.user_info || 'N/A'}</td>
+                      <td>{crime.media_url ? <a href={crime.media_url} target="_blank" rel="noopener noreferrer">View</a> : 'N/A'}</td>
                       <td>{crime.severity}</td>
                       <td>{crime.status}</td>
+                      <td>{crime.area}</td>
                       <td>
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${crime.latitude},${crime.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="get-there-button"
-                        >
-                          Get There
-                        </a>
-                      </td>
-                      <td>
-                        {crime.status === 'active' && (
-                          <button onClick={() => handleSolveCase(crime.id)} className='solve-case-btn'>Mark as Solved</button>
+                        {crime.status !== 'SOLVED' && (
+                          <button onClick={() => handleSolveCase(crime.id)} className="solve-button">Mark as Solved</button>
                         )}
                       </td>
                     </tr>

@@ -7,8 +7,6 @@ import 'leaflet.heat';
 const CrimeMapLayer = ({ crimeData }) => {
   const map = useMap();
   const [clusterLayer, setClusterLayer] = useState(null);
-  const [heatLayer, setHeatLayer] = useState(null);
-  const [viewMode, setViewMode] = useState('cluster'); // 'cluster' or 'heat'
 
   useEffect(() => {
     if (crimeData.length > 0) {
@@ -19,9 +17,6 @@ const CrimeMapLayer = ({ crimeData }) => {
         showCoverageOnHover: false,
         zoomToBoundsOnClick: true
       });
-
-      // Create heat layer array
-      const heatArray = [];
 
       crimeData.forEach(crime => {
         const { latitude, longitude, type, description, timestamp, media_url } = crime;
@@ -39,79 +34,21 @@ const CrimeMapLayer = ({ crimeData }) => {
             ${media_url ? `<img src="${media_url}" alt="Media" style="max-width: 200px; max-height: 200px;" />` : ''}
           `);
           markers.addLayer(marker);
-
-          // Add point to heat array (you can adjust intensity based on crime type if needed)
-          heatArray.push([lat, lng, 1]);
         }
       });
 
-      // Create heat layer
-      const heat = L.heatLayer(heatArray, { 
-        radius: 25, 
-        blur: 15, 
-        maxZoom: 17,
-        max: 1.0,
-        gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' }
-      });
-
-      // Save layers
+      // Save layer
       setClusterLayer(markers);
-      setHeatLayer(heat);
 
-      // Initial view
+      // Add cluster layer to map
       map.addLayer(markers);
     }
 
     // Cleanup function
     return () => {
       if (clusterLayer) map.removeLayer(clusterLayer);
-      if (heatLayer) map.removeLayer(heatLayer);
     };
   }, [crimeData, map]);
-
-  // Toggle between cluster and heat view
-  useEffect(() => {
-    if (clusterLayer && heatLayer) {
-      if (viewMode === 'cluster') {
-        map.addLayer(clusterLayer);
-        map.removeLayer(heatLayer);
-      } else {
-        map.addLayer(heatLayer);
-        map.removeLayer(clusterLayer);
-      }
-    }
-  }, [viewMode, clusterLayer, heatLayer, map]);
-
-  // Add custom control for toggling view
-  useEffect(() => {
-    const customControl = L.Control.extend({
-      options: {
-        position: 'topright'
-      },
-      onAdd: function() {
-        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
-        container.style.backgroundColor = 'white';
-        container.style.padding = '5px';
-        container.innerHTML = `
-          <button id="cluster-btn" style="margin-right: 5px;">Cluster</button>
-          <button id="heat-btn">Heat</button>
-        `;
-        
-        L.DomEvent.disableClickPropagation(container);
-        
-        container.querySelector('#cluster-btn').addEventListener('click', () => setViewMode('cluster'));
-        container.querySelector('#heat-btn').addEventListener('click', () => setViewMode('heat'));
-        
-        return container;
-      }
-    });
-    
-    map.addControl(new customControl());
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, [map]);
 
   return null;
 };

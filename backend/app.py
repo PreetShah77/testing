@@ -15,6 +15,13 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 import base64
+import openai
+import textwrap
+import pandas as pd
+import requests
+from geopy.geocoders import Nominatim
+from geopy.exc import GeocoderTimedOut
+
 app = Flask(__name__)
 CORS(app)
 
@@ -64,10 +71,14 @@ def create_table():
         description TEXT NOT NULL,
         latitude FLOAT NOT NULL,
         longitude FLOAT NOT NULL,
+        address TEXT,
+        area VARCHAR(100),
         timestamp DATETIME NOT NULL,
         anonymous BOOLEAN NOT NULL,
         user_info TEXT,
-        media_url VARCHAR(200)
+        media_url VARCHAR(200),
+        status enum('active','solved'),
+        severity TEXT
     )
     """
     
@@ -114,6 +125,41 @@ def send_email(to_email, subject, body):
             server.quit()
         except:
             pass
+#updated
+def get_address(latitude, longitude):
+    geolocator = Nominatim(user_agent="crime_report_app")
+    try:
+        location = geolocator.reverse(f"{latitude}, {longitude}", timeout=10)
+        if location:
+            address = location.raw.get('address', {})
+            
+            # Extract relevant information
+            postcode = address.get('postcode', '')
+            print(postcode)
+            return {
+                'full_address': location.address,
+                'postcode': postcode
+            }
+        
+        return None
+    except GeocoderTimedOut:
+        return None
+#updated
+def get_area_by_pincode(postcode):
+    try:
+        response = requests.get(f"https://api.postalpincode.in/pincode/384012")
+        if response.status_code == 200:
+            data = response.json()
+            if data[0]['Status'] == 'Success' and data[0]['PostOffice']:
+                post_office = data[0]['PostOffice'][0]  # Take the first post office
+                area = post_office['Name']
+                return area  # Extracting district or area name
+        print(f"Error: API response for pincode {postcode} - {data}")
+        return "Unknown Area"
+    except Exception as e:
+        print(f"Error fetching area for pincode {postcode}: {e}")
+        return "Unknown Area"
+    
 @app.route('/api/reports', methods=['GET'])
 def get_reports():
     connection = create_db_connection()
@@ -145,6 +191,10 @@ def get_crimes():
             """
             cursor.execute(sql, (f'%{search}%', f'%{search}%'))
             crimes = cursor.fetchall()
+
+            for crime in crimes:
+                crime['timestamp'] = crime['timestamp'].isoformat()
+
             return jsonify(crimes)
     except Exception as e:
         print(f"Error fetching data: {e}")
@@ -175,28 +225,27 @@ def get_crimes_for_map():
         return jsonify({'error': 'Failed to fetch crimes for map'}), 500
     finally:
         connection.close()
-
-
+#updated
 @app.route('/api/reports', methods=['POST'])
 def create_report():
     connection = create_db_connection()
     if connection is None:
+        print("Database connection failed")
         return jsonify({"error": "Database connection failed"}), 500
 
     try:
         # Handle form data
         type = request.form.get('type')
         description = request.form.get('description')
-        latitude = request.form.get('latitude')
-        longitude = request.form.get('longitude')
+        latitude = float(request.form.get('latitude'))
+        longitude = float(request.form.get('longitude'))
         anonymous = request.form.get('anonymous', 'false').lower() == 'true'
 
         # Always handle user info, even for anonymous reports
         user_id = request.form.get('userId')
         user_email = request.form.get('userEmail')
         user_name = request.form.get('username')
-        user_phone = request.form.get('phonenumber')
-        user_info = f"User ID: {user_id}, Email: {user_email}, Name: {user_name}, Phone-number: {user_phone}"
+        user_info = f"User ID: {user_id}, Email: {user_email}, Name: {user_name}"
 
         # Handle file upload
         media_url = None
@@ -206,29 +255,38 @@ def create_report():
                 filename = secure_filename(file.filename)
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(file_path)
-                media_url = f"http://localhost:5050/static/uploads/{filename}" 
+                media_url = f"http://localhost:5050/static/uploads/{filename}"
 
         timestamp = datetime.now()
-
-        # Use g4f to determine crime severity
         severity = get_crime_severity(type, description)
+        
+        # Get the address and area from the latitude and longitude
+        address_info = get_address(latitude, longitude)
+        address = address_info['full_address'] if address_info else None
+        postcode = address_info['postcode'] if address_info else None
+
+        # Fetch the area based on the postcode
+        area = get_area_by_pincode(postcode) if postcode else None
 
         # Insert into database
         cursor = connection.cursor()
         insert_query = """
-        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, user_info, media_url, severity)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO crime_reports (type, description, latitude, longitude, address, area, timestamp, anonymous, user_info, media_url, severity, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.execute(insert_query, (
             type,
             description,
             latitude,
             longitude,
+            address,
+            area,
             timestamp,
             anonymous,
             user_info,
             media_url,
-            severity
+            severity,
+            'active'  # Default status
         ))
         connection.commit()
 
@@ -238,35 +296,64 @@ def create_report():
             'description': description,
             'latitude': latitude,
             'longitude': longitude,
+            'address': address,
+            'area': area,
             'timestamp': timestamp.isoformat(),
             'anonymous': anonymous,
             'user_info': user_info if not anonymous else None,
             'media_url': media_url,
-            'severity': severity
+            'severity': severity,
+            'status': 'active'
         }
 
+        print(f"Report created successfully: {new_report}")
         return jsonify(new_report), 201
 
+    except ValueError as e:
+        print(f"Value error: {str(e)}")
+        return jsonify({"error": f"Invalid data: {str(e)}"}), 400
     except Error as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"Database error: {str(e)}")
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
     finally:
         if connection and connection.is_connected():
             cursor.close()
             connection.close()
 
 def get_crime_severity(type, description):
+    client = openai.OpenAI(
+        api_key="sk-Wq92WAfzC2S6_3-HsyC_0A",
+        base_url="https://chatapi.akash.network/api/v1"
+    )
+
     prompt = f"Given the crime type: '{type}' and description: '{description}', classify the severity as HIGH, MEDIUM, or LOW. Respond with only the severity level."
+
     try:
-        response = g4f.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+        response = client.chat.completions.create(
+            model="llama3-8b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
         )
-        severity = response.strip().upper()
+
+        severity = response.choices[0].message.content.strip().upper()
         if severity not in ["HIGH", "MEDIUM", "LOW"]:
             raise ValueError("Unexpected severity level")
         return severity
+    except openai.APIConnectionError as e:
+        print(f"Error connecting to the API: {str(e)}")
+        return "CONNECTION_ERROR"
+    except openai.APIError as e:
+        print(f"API error: {str(e)}")
+        return "API_ERROR"
     except Exception as e:
-        print(f"Error in determining severity: {str(e)}")
+        print(f"Unexpected error in determining severity: {str(e)}")
         return "UNKNOWN"
 @app.route('/api/solve_case/<int:case_id>', methods=['PUT'])
 def solve_case(case_id):
@@ -331,7 +418,7 @@ def get_police_dashboard():
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
             sql = """
-                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, severity,
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, area, severity,
                 CASE WHEN anonymous = 0 THEN user_info ELSE NULL END as user_info, status
                 FROM crime_reports 
                 WHERE status = 'active'
@@ -351,7 +438,7 @@ def get_user_reports(user_email):
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
             sql = """
-                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info, status
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info, status, area
                 FROM crime_reports 
                 WHERE user_info LIKE %s
             """
@@ -379,6 +466,85 @@ def image_gallery():
     
     return html
 
+@app.route('/api/download_crimes', methods=['GET'])
+def download_crimes():
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            # Fetch solved crimes
+            cursor.execute("SELECT id, type, description, latitude, longitude, area, anonymous, media_url, user_info, status, severity FROM crime_reports WHERE status = 'solved'")
+            solved_crimes = cursor.fetchall()
+            
+            # Fetch unsolved crimes
+            cursor.execute("SELECT id, type, description, latitude, longitude, area, anonymous, media_url, user_info, status, severity FROM crime_reports WHERE status = 'active'")
+            unsolved_crimes = cursor.fetchall()
+
+            # Create dataframes
+            df_solved = pd.DataFrame(solved_crimes)
+            df_unsolved = pd.DataFrame(unsolved_crimes)
+
+            # Save to Excel
+            file_path = 'crime_reports.xlsx'
+            with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                df_solved.to_excel(writer, sheet_name='Solved Crimes', index=False)
+                df_unsolved.to_excel(writer, sheet_name='Unsolved Crimes', index=False)
+
+        return send_from_directory(directory='.', path=file_path, as_attachment=True)
+    except Exception as e:
+        print(f"Error downloading crimes: {e}")
+        return jsonify({'error': 'Failed to download crime reports'}), 500
+    finally:
+        connection.close()
+
+@app.route('/api/sos', methods=['POST'])
+def handle_sos():
+    data = request.json
+    image_data = data['image']
+    latitude = data['latitude']
+    longitude = data['longitude']
+
+    # Generate a unique filename
+    filename = f"sos_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    # Save the image
+    image_data = image_data.split(',')[1]  # Remove the data URL prefix
+    with open(file_path, "wb") as f:
+        f.write(base64.b64decode(image_data))
+
+    # Save to database
+    try:
+        connection = create_db_connection()
+        cursor = connection.cursor()
+        insert_query = """
+        INSERT INTO crime_reports (type, description, latitude, longitude, timestamp, anonymous, media_url, severity, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(insert_query, (
+            "SOS",
+            "Emergency SOS report",
+            latitude,
+            longitude,
+            datetime.now(),
+            True,
+            f"http://localhost:5050/static/uploads/{filename}",
+            "HIGH",
+            "active"
+        ))
+        connection.commit()
+
+        # Notify relevant authorities (implement this based on your requirements)
+        # For example, you could send an email or trigger an alert system
+
+        return jsonify({"message": "SOS received and processed"}), 200
+    except Error as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+
+# Make sure to add this route to your existing Flask app
 
 if __name__ == '__main__':
     create_table()

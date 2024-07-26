@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { SignedIn, SignedOut, UserButton, useClerk, useUser } from "@clerk/clerk-react";
 import "../styles/Header.css";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function SignUpButton() {
   const clerk = useClerk();
-
   return (
-    <button className="sign-up-btn" onClick={() => clerk.openSignUp({})}>
+    <button onClick={() => clerk.openSignUp({})}>
       Sign up
     </button>
   );
@@ -15,9 +14,8 @@ function SignUpButton() {
 
 function SignInButton() {
   const clerk = useClerk();
-
   return (
-    <button className="sign-in-btn" onClick={() => clerk.openSignIn({})}>
+    <button onClick={() => clerk.openSignIn({})}>
       Sign in
     </button>
   );
@@ -26,19 +24,16 @@ function SignInButton() {
 function Header() {
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useUser();
-  
+  const navigate = useNavigate();
+
   useEffect(() => {
     if (user) {
       const email = user.primaryEmailAddress.emailAddress;
-      // Here, we are assuming the password is known or managed securely
-      const authMethods = user.externalAccounts; // Get external accounts like Google
-      
-      // Check if user logged in via Google
+      const authMethods = user.externalAccounts;
+
       const loggedInWithGoogle = authMethods.some(account => account.provider === 'google');
 
       if (!loggedInWithGoogle) {
-        // Simulate secure password check (should be done on the server) Replace with actual secure password input handling
-
         const adminEmail = "vriddhishah21@gnu.ac.in";
         const adminPassword = "qweasd123../";
 
@@ -57,70 +52,40 @@ function Header() {
   const handleRedirect = (url) => {
     window.location.assign(url);
   };
-  
-  return (
-    <header>
-      <nav>
-        <SignedOut>
-          <ul>
-            <li>
-              <SignUpButton />
-            </li>
-            <li>
-              <SignInButton />
-            </li>
-          </ul>
-        </SignedOut>
 
-        <SignedIn>
-          <ul>
+  const handleSOS = () => {
+    navigate('/sos');
+  };
+
+  return (
+    <header className="header">
+      <nav>
+        <ul>
+          {!isAdmin && (
             <li>
-              <UserButton className="user-button" afterSignOutUrl="/" />
+              <button onClick={handleSOS} className="sos-button">SOS</button>
             </li>
+          )}
+          <SignedIn>
             {isAdmin ? (
               <>
-              <li>
-              <Link to='/dashboard' style={{textDecoration: 'none'}}>
-                <button className='sign-up-btn' style={{color: "#61dafb"}}>
-                  Dashboard
-                </button>
-              </Link>
-              </li>
-              <li>
-              <Link to='/crimemap' style={{textDecoration: 'none'}}>
-                <button className='sign-up-btn' style={{color: "#61dafb"}}>
-                  Map
-                </button>
-              </Link>
-              </li>
+                <li><Link to="/dashboard">Dashboard</Link></li>
+                <li><Link to="/crimemap">Map</Link></li>
               </>
             ) : (
               <>
-                <li>
-                <Link to='/crimemap' style={{textDecoration: 'none'}}>
-                <button className='sign-up-btn' style={{color: "#61dafb"}}>
-                  Map
-                </button>
-              </Link>
-                </li>
-                <li>
-                  <Link to='/report' style={{textDecoration: 'none'}}>
-                    <button className='sign-up-btn' style={{color: "#61dafb"}}>
-                      Report Form
-                    </button>
-                  </Link>
-                </li>
-                <li>
-                  <Link to='/myreport' style={{textDecoration: 'none'}}>
-                    <button className='sign-up-btn' style={{color: "#61dafb"}}>
-                      My Reports
-                    </button>
-                  </Link>
-                </li>
+                <li><Link to="/crimemap">Map</Link></li>
+                <li><Link to="/report">Report Form</Link></li>
+                <li><Link to="/myreport">My Reports</Link></li>
               </>
             )}
-          </ul>
-        </SignedIn>
+            <li><UserButton /></li>
+          </SignedIn>
+          <SignedOut>
+            <li><SignUpButton /></li>
+            <li><SignInButton /></li>
+          </SignedOut>
+        </ul>
       </nav>
     </header>
   );

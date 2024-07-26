@@ -9,6 +9,7 @@ import ReportForm from "./components/ReportForm";
 import Dashboard from "./components/Dashboard";
 import CrimeMap from "./components/CrimeMap";
 import MyReports from './components/MyReports';
+import SOS from "./components/SOS";
 import "./styles/index.css";
 
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/dashboard" element={<Dashboard/>}></Route>
             <Route path="/crimemap" element={<CrimeMap/>}></Route>
             <Route path="/myreport" element={<MyReports/>}></Route>
+            <Route path="/sos" element={<SOS />} />
           </Route>
           
           <Route path="*" element={<NoMatch />} />
