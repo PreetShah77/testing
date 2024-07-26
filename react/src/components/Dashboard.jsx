@@ -93,6 +93,11 @@ const Dashboard = () => {
     }
   };
 
+  const openGoogleMaps = (latitude, longitude) => {
+    const url = `https://www.google.com/maps?q=${latitude},${longitude}`;
+    window.open(url, '_blank');
+  };
+
   const filteredCrimes = crimes
     .filter((crime) => {
       const crimeDate = new Date(crime.timestamp);
@@ -290,6 +295,7 @@ const Dashboard = () => {
                     <th onClick={() => handleSort('status')}>Status</th>
                     <th onClick={() => handleSort('area')}>Area</th>
                     <th>Actions</th>
+                    <th>Get There</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -308,6 +314,11 @@ const Dashboard = () => {
                       <td>
                         {crime.status !== 'SOLVED' && (
                           <button onClick={() => handleSolveCase(crime.id)} className="solve-button">Mark as Solved</button>
+                        )}
+                        </td>
+                        <td>
+                        {crime.latitude && crime.longitude && (
+                          <button onClick={() => openGoogleMaps(crime.latitude, crime.longitude)} className="get-there-button">Get There</button>
                         )}
                       </td>
                     </tr>

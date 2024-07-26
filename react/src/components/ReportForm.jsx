@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import axios from 'axios';
 import { useUser } from "@clerk/clerk-react";
@@ -12,6 +12,9 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
   const [fileName, setFileName] = useState('');
   const [isFormSubmitted, setIsFormSubmitted] = useState(false);
   const [showOtherCrimeType, setShowOtherCrimeType] = useState(false);
+  const [image, setImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null); // New state for storing image Blob
+  const videoRef = useRef(null);
 
   const crimeType = watch('type');
 
@@ -24,6 +27,8 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
     setFileName('');
     setLocation(null);
     setShowOtherCrimeType(false);
+    setImage(null);
+    setImageFile(null);
   }, [reset]);
 
   useEffect(() => {
@@ -58,6 +63,40 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      videoRef.current.srcObject = stream;
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+    }
+  };
+
+  const stopCamera = () => {
+    const stream = videoRef.current?.srcObject;
+    const tracks = stream?.getTracks();
+    tracks?.forEach(track => track.stop());
+  };
+
+  const captureImage = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      setImage(url);
+      setImageFile(blob); // Store the Blob
+    }, 'image/jpeg');
+    stopCamera();
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
   const onSubmit = async (data) => {
     if (!location) {
       alert('Please allow location access to submit a report.');
@@ -71,15 +110,17 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
       formData.append('latitude', location.latitude);
       formData.append('longitude', location.longitude);
       formData.append('anonymous', data.anonymous);
-      
-      if (!data.anonymous || data.anonymous && user) {
+
+      if (!data.anonymous || (data.anonymous && user)) {
         formData.append('userId', user.id);
         formData.append('userEmail', user.primaryEmailAddress.emailAddress);
         formData.append('username', user.fullName);
       }
-      
+
       if (data.media && data.media[0]) {
         formData.append('media', data.media[0]);
+      } else if (imageFile) {
+        formData.append('media', imageFile, 'captured_image.jpg');
       }
 
       const response = await axios.post('http://localhost:5050/api/reports', formData, {
@@ -87,7 +128,7 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
           'Content-Type': 'multipart/form-data'
         }
       });
-      
+
       if (typeof onReportSubmitted === 'function') {
         onReportSubmitted(response.data);
       }
@@ -97,7 +138,7 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
       alert('An error occurred while submitting the report. Please try again.');
     }
   };
-  
+
   const handleFileChange = (e) => {
     if (e.target.files[0]) {
       setFileName(e.target.files[0].name);
@@ -155,12 +196,10 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
             />
             {errors.description && <span className="error-message">{errors.description.message}</span>}
           </div>
-          <div class="checkbox-group">
-  <div class="anonymous-checkbox">
-    <input type="checkbox" id="anonymous" name="anonymous" />
-    <label for="anonymous">Submit anonymously</label>
-  </div>
-</div>
+          <div className="form-group checkbox-group">
+            <input type="checkbox" id="anonymous" {...register('anonymous')} />
+            <label htmlFor="anonymous">Report Anonymously</label>
+          </div>
           <div className="form-group file-input-group">
             <label htmlFor="media" className="file-input-label">
               {fileName || 'Choose File'}
@@ -168,12 +207,26 @@ const ReportForm = ({ onReportSubmitted = () => {} }) => {
             <input 
               type="file" 
               id="media" 
-              {...register('media', { required: 'Media file is required' })} 
+              {...register('media')} 
               accept="image/*,video/*" 
               onChange={handleFileChange}
               className="file-input"
             />
             {errors.media && <span className="error-message">{errors.media.message}</span>}
+          </div>
+          <div className="form-group">
+            {!image ? (
+              <>
+                <video ref={videoRef} autoPlay />
+                <button type="button" onClick={startCamera} className="capture-btn">Start Camera</button>
+                <button type="button" onClick={captureImage} className="capture-btn">Capture Image</button>
+              </>
+            ) : (
+              <>
+                <img src={image} alt="Captured" />
+                <button type="button" onClick={() => setImage(null)} className="capture-btn">Retake</button>
+              </>
+            )}
           </div>
           <div className="form-group">
             <button type="button" onClick={getLocation} disabled={isGettingLocation} className="location-btn">
