@@ -34,7 +34,7 @@ function Header() {
       const loggedInWithGoogle = authMethods.some(account => account.provider === 'google');
 
       if (!loggedInWithGoogle) {
-        const adminEmail = "vriddhishah21@gnu.ac.in";
+        const adminEmail = "preetashah21@gnu.ac.in";
         const adminPassword = "qweasd123../";
 
         if (email === adminEmail) {

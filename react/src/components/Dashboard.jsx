@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import '../styles/Dashboard.css';
+import { useUser } from "@clerk/clerk-react";
 
 ChartJS.register(
   CategoryScale,
@@ -15,6 +16,7 @@ ChartJS.register(
   Tooltip,
   Legend
 );
+
 
 const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeTypes, severityFilter, setSeverityFilter }) => {
   return (
@@ -49,7 +51,8 @@ const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeType
   );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ user }) => {  // Add user prop
+  const { user: userdata } = useUser();
   const [crimes, setCrimes] = useState([]);
   const [view, setView] = useState('dashboard');
   const [typeFilter, setTypeFilter] = useState('');
@@ -76,13 +79,16 @@ const Dashboard = () => {
   const handleSolveCase = async (id) => {
     if (window.confirm("Are you sure you want to mark this case as solved?")) {
       try {
-        await axios.put(`http://localhost:5050/api/solve_case/${id}`);
+        const solvedBy = userdata.username;
+        console.log(`Solved by: ${solvedBy}`);  // Debug log to check the email
+        await axios.put(`http://localhost:5050/api/solve_case/${id}`, { solvedBy });
         fetchCrimes(); // Refresh the crime list
       } catch (error) {
         console.error('Error solving case:', error);
       }
     }
   };
+
 
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -108,7 +114,6 @@ const Dashboard = () => {
       );
     })
     .sort((a, b) => {
-      // Prioritize SOS crimes
       if (a.type === "SOS" && b.type !== "SOS") return -1;
       if (b.type === "SOS" && a.type !== "SOS") return 1;
       
@@ -294,6 +299,7 @@ const Dashboard = () => {
                     <th onClick={() => handleSort('severity')}>Severity</th>
                     <th onClick={() => handleSort('status')}>Status</th>
                     <th onClick={() => handleSort('area')}>Area</th>
+                    <th onClick={() => handleSort('solved_by')}>Solved By</th>
                     <th>Actions</th>
                     <th>Get There</th>
                   </tr>
@@ -311,12 +317,13 @@ const Dashboard = () => {
                       <td>{crime.severity}</td>
                       <td>{crime.status}</td>
                       <td>{crime.area}</td>
+                      <td>{crime.solved_by || 'N/A'}</td>
                       <td>
-                        {crime.status !== 'SOLVED' && (
+                        {crime.status !== 'solved' && (
                           <button onClick={() => handleSolveCase(crime.id)} className="solve-button">Mark as Solved</button>
                         )}
-                        </td>
-                        <td>
+                      </td>
+                      <td>
                         {crime.latitude && crime.longitude && (
                           <button onClick={() => openGoogleMaps(crime.latitude, crime.longitude)} className="get-there-button">Get There</button>
                         )}

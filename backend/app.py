@@ -78,6 +78,7 @@ def create_table():
         media_url VARCHAR(200),
         status enum('active','solved'),
         severity TEXT
+        solved_by VARCHAR(255)
     )
     """
     
@@ -217,97 +218,6 @@ def get_crimes_for_map():
     finally:
         connection.close()
 
-# @app.route('/api/reports', methods=['POST'])
-# def create_report():
-#     connection = create_db_connection()
-#     if connection is None:
-#         print("Database connection failed")
-#         return jsonify({"error": "Database connection failed"}), 500
-
-#     try:
-#         type = request.form.get('type')
-#         description = request.form.get('description')
-#         latitude = float(request.form.get('latitude'))
-#         longitude = float(request.form.get('longitude'))
-#         anonymous = request.form.get('anonymous', 'false').lower() == 'true'
-
-#         user_id = request.form.get('userId')
-#         user_email = request.form.get('userEmail')
-#         user_name = request.form.get('username')
-#         user_info = f"User ID: {user_id}, Email: {user_email}, Name: {user_name}"
-
-#         media_url = None
-#         if 'media' in request.files:
-#             file = request.files['media']
-#             if file and allowed_file(file.filename):
-#                 filename = secure_filename(file.filename)
-#                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-#                 file.save(file_path)
-#                 media_url = f"http://localhost:5050/static/uploads/{filename}"
-
-#         timestamp = datetime.now()
-#         severity = get_crime_severity(type, description)
-        
-#         address_info = get_address(latitude, longitude)
-#         address = address_info['full_address'] if address_info else None
-#         postcode = address_info['postcode'] if address_info else None
-
-#         area = get_area_by_pincode(postcode) if postcode else None
-
-#         cursor = connection.cursor()
-#         insert_query = """
-#         INSERT INTO crime_reports (type, description, latitude, longitude, address, area, timestamp, anonymous, user_info, media_url, severity, status)
-#         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-#         """
-#         cursor.execute(insert_query, (
-#             type,
-#             description,
-#             latitude,
-#             longitude,
-#             address,
-#             area,
-#             timestamp,
-#             anonymous,
-#             user_info,
-#             media_url,
-#             severity,
-#             'active'
-#         ))
-#         connection.commit()
-
-#         new_report = {
-#             'id': cursor.lastrowid,
-#             'type': type,
-#             'description': description,
-#             'latitude': latitude,
-#             'longitude': longitude,
-#             'address': address,
-#             'area': area,
-#             'timestamp': timestamp.isoformat(),
-#             'anonymous': anonymous,
-#             'user_info': user_info if not anonymous else None,
-#             'media_url': media_url,
-#             'severity': severity,
-#             'status': 'active'
-#         }
-
-#         print(f"Report created successfully: {new_report}")
-#         return jsonify(new_report), 201
-
-#     except ValueError as e:
-#         print(f"Value error: {str(e)}")
-#         return jsonify({"error": f"Invalid data: {str(e)}"}), 400
-#     except Error as e:
-#         print(f"Database error: {str(e)}")
-#         return jsonify({"error": f"Database error: {str(e)}"}), 500
-#     except Exception as e:
-#         print(f"Unexpected error: {str(e)}")
-#         return jsonify({"error": "An unexpected error occurred"}), 500
-#     finally:
-#         if connection and connection.is_connected():
-#             cursor.close()
-#             connection.close()
-
 @app.route('/api/reports', methods=['POST'])
 def create_report():
     connection = create_db_connection()
@@ -416,6 +326,8 @@ def solve_case(case_id):
     try:
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            solved_by = request.json.get('solvedBy', 'Unknown Officer')
+            
             sql_select = "SELECT * FROM crime_reports WHERE id = %s"
             cursor.execute(sql_select, (case_id,))
             case = cursor.fetchone()
@@ -423,8 +335,8 @@ def solve_case(case_id):
             if not case:
                 return jsonify({'error': 'Case not found'}), 404
 
-            sql_update = "UPDATE crime_reports SET status = 'solved' WHERE id = %s"
-            cursor.execute(sql_update, (case_id,))
+            sql_update = "UPDATE crime_reports SET status = 'solved', solved_by = %s WHERE id = %s"
+            cursor.execute(sql_update, (solved_by, case_id))
             connection.commit()
 
             user_info = case['user_info']
@@ -489,7 +401,7 @@ def get_user_reports(user_email):
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
             sql = """
-                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info, status, area
+                SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, user_info, status, area, solved_by
                 FROM crime_reports 
                 WHERE user_info LIKE %s
             """
@@ -539,6 +451,58 @@ def download_crimes():
     except Exception as e:
         print(f"Error downloading crimes: {e}")
         return jsonify({'error': 'Failed to download crime reports'}), 500
+    finally:
+        connection.close()
+
+@app.route('/api/reraise_case/<int:case_id>', methods=['PUT'])
+def reraise_case(case_id):
+    try:
+        connection = pymysql.connect(**db_config)
+        with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            sql_select = "SELECT * FROM crime_reports WHERE id = %s"
+            cursor.execute(sql_select, (case_id,))
+            case = cursor.fetchone()
+
+            if not case:
+                return jsonify({'error': 'Case not found'}), 404
+
+            sql_update = "UPDATE crime_reports SET status = 'active', solved_by = NULL WHERE id = %s"
+            cursor.execute(sql_update, (case_id,))
+            connection.commit()
+
+            user_info = case['user_info']
+            user_email = None
+            if user_info:
+                email_start = user_info.find("Email: ") + 7
+                email_end = user_info.find(",", email_start)
+                user_email = user_info[email_start:email_end].strip()
+
+            if user_email:
+                subject = "Your Reported Crime Case Has Been Re-opened"
+                body = f"""
+                Dear User,
+
+                We are writing to inform you that the crime case you reported has been re-opened.
+
+                Case Details:
+                ID: {case['id']}
+                Type: {case['type']}
+                Description: {case['description']}
+                Location: Latitude {case['latitude']}, Longitude {case['longitude']}
+                Reported on: {case['timestamp']}
+
+                Thank you for your cooperation.
+
+                Best regards,
+                Your Local Police Department
+                """
+
+                send_email(user_email, subject, body)
+
+            return jsonify({'message': 'Case re-opened and user notified'}), 200
+    except Exception as e:
+        print(f"Error re-opening case: {e}")
+        return jsonify({'error': 'Failed to re-open case'}), 500
     finally:
         connection.close()
 

@@ -1,64 +1,40 @@
-from geopy.geocoders import Photon
-import time
+import mysql.connector
+from mysql.connector import Error
 
-def get_location_info(latitude, longitude):
-    # Initialize Photon geocoder
-    geolocator = Photon(user_agent="YourAppName/1.0")
+# Database configuration
+db_config = {
+    'host': 'seslo6rad1a892smqsn38aub0o.ingress.d3akash.cloud',
+    'user': 'root',
+    'password': 'root',
+    'database': 'crimereports',
+    'port': 32651
+}
 
-    # Add a small delay to avoid overwhelming the service
-    time.sleep(1)
+# Function to alter the table
+def alter_table():
+    try:
+        # Connect to the database
+        connection = mysql.connector.connect(**db_config)
 
-    # Reverse geocoding
-    location = geolocator.reverse(f"{latitude}, {longitude}")
+        if connection.is_connected():
+            cursor = connection.cursor()
+            # SQL command to alter the table
+            alter_table_query = "select * from crime_reports;"
+            cursor.execute(alter_table_query)
+            result = cursor.fetchall()
+            connection.commit()
+            print(result)
+        else:
+            print("Failed to connect to the database")
 
-    if location:
-        address = location.raw['properties']
-        
-        # Extract relevant information
-        country = address.get('country', '')
-        state = address.get('state', '')
-        city = address.get('city', '')
-        postcode = address.get('postcode', '')
-        road = address.get('street', '')
-        house_number = address.get('housenumber', '')
+    except Error as e:
+        print(f"Error: {e}")
 
-        return {
-            'full_address': location.address,
-            'country': country,
-            'state': state,
-            'city': city,
-            'postcode': postcode,
-            'road': road,
-            'house_number': house_number
-        }
-    else:
-        return None
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("MySQL connection is closed")
 
-# Example usage
-latitude = 23.5275
-longitude =72.4582
-
-location_info = get_location_info(latitude, longitude)
-
-if location_info:
-    print("Full Address:", location_info['full_address'])
-    print("Country:", location_info['country'])
-    print("State:", location_info['state'])
-    print("City:", location_info['city'])
-    print("Postcode:", location_info['postcode'])
-    print("Road:", location_info['road'])
-    print("House Number:", location_info['house_number'])
-else:
-    print("Location not found")
-
-# Function to get pincode for a given latitude and longitude
-def get_pincode(latitude, longitude):
-    location_info = get_location_info(latitude, longitude)
-    if location_info and location_info['postcode']:
-        return location_info['postcode']
-    else:
-        return "Pincode not found"
-
-# Example usage of get_pincode function
-pincode = get_pincode(23.5275, 72.4582)
-print(f"Pincode for the given coordinates: {pincode}")
+# Call the function to alter the table
+alter_table()

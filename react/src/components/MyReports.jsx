@@ -26,28 +26,43 @@ const MyReports = () => {
     fetchUserReports();
   }, [user]);
 
+  const handleReRaise = async (reportId) => {
+    try {
+      await axios.put(`http://localhost:5050/api/reraise_case/${reportId}`);
+      // Fetch updated reports
+      const response = await axios.get(`http://localhost:5050/api/user_reports/${user.primaryEmailAddress.emailAddress}`);
+      setReports(response.data);
+    } catch (err) {
+      setError('Failed to re-raise the case');
+    }
+  };
+
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>{error}</div>;
 
   return (
-    <div className="my-reports-container">
-      <h2>My Reports</h2>
+    <div>
+      <h1>My Reports</h1>
       {reports.length === 0 ? (
-        <p>You haven't filed any reports yet.</p>
+        <div>You haven't filed any reports yet.</div>
       ) : (
-        <ul className="reports-list">
+        <div className="reports-list">
           {reports.map((report) => (
-            <li key={report.id} className="report-item">
+            <div key={report.id} className="report-item">
               <h3>{report.type}</h3>
               <p>{report.description}</p>
               <p>Reported on: {new Date(report.timestamp).toLocaleString()}</p>
               <p>Status: {report.status === 'active' ? 'Active' : 'Solved'}</p>
-              {report.media_url && (
-                <img src={report.media_url} alt="Report media" className="report-media" />
+              {report.status === 'solved' && <p>Solved by: {report.solved_by}</p>}
+              {report.status === 'solved' && (
+                <button onClick={() => handleReRaise(report.id)}>Re-raise</button>
               )}
-            </li>
+              {report.media_url && (
+                <img src={report.media_url} alt="Report Media" />
+              )}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
