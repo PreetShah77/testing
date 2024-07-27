@@ -69,35 +69,44 @@ function Header() {
           <SignedIn>
             {isAdmin ? (
               <>
-
-                <li><Link to="/dashboard">
-                <button className='sign-up-btn' style={{color:"61dafb"}}>
-                Dashboard
-                </button>
-                </Link></li>
-                <li><Link to="/crimemap">
-                <button className='sign-up-btn' style={{color:"61dafb"}}>
-                Map
-                </button>
-                </Link></li>
+                <li>
+                  <Link to="/dashboard">
+                    <button className='sign-up-btn' style={{color:"61dafb"}}>
+                      Dashboard
+                    </button>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/crimemap">
+                    <button className='sign-up-btn' style={{color:"61dafb"}}>
+                      Map
+                    </button>
+                  </Link>
+                </li>
               </>
             ) : (
               <>
-                <li><Link to="/crimemap">
-                <button className='sign-up-btn' style={{color:"61dafb"}}>
-                Map
-                </button>
-                </Link></li>
-                <li><Link to="/report">
-                <button className='sign-up-btn' style={{color:"61dafb"}}>
-                Report Form
-                </button>
-                </Link></li>
-                <li><Link to="/myreport">
-                <button className='sign-up-btn' style={{color:"61dafb"}}>
-                My Reports
-                </button>
-                </Link></li>
+                <li>
+                  <Link to="/crimemap">
+                    <button className='sign-up-btn' style={{color:"61dafb"}}>
+                      Map
+                    </button>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/report">
+                    <button className='sign-up-btn' style={{color:"61dafb"}}>
+                      Report Form
+                    </button>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/myreport">
+                    <button className='sign-up-btn' style={{color:"61dafb"}}>
+                      My Reports
+                    </button>
+                  </Link>
+                </li>
               </>
             )}
             <li><UserButton /></li>

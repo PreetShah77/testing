@@ -58,6 +58,30 @@ p {
   font-size: 1.1rem;
   line-height: 1.6;
 }
+/* Counters container */
+.counters {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 2rem;
+}
+
+.counter {
+  text-align: center;
+}
+
+.counter-number {
+  font-size: 2rem;
+  color: #ff6f00; /* Accent color */
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.5s ease-in-out;
+}
+
+.counter-label {
+  display: block;
+  font-size: 1rem;
+  color: #000000;
+  margin-top: 0.5rem;
+}
 
 @media (max-width: 768px) {
   .content {

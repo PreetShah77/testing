@@ -21,6 +21,7 @@ import pandas as pd
 import requests
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
+from geopy.distance import geodesic
 
 app = Flask(__name__)
 CORS(app)
@@ -77,7 +78,7 @@ def create_table():
         user_info TEXT,
         media_url VARCHAR(200),
         status enum('active','solved'),
-        severity TEXT
+        severity TEXT,
         solved_by VARCHAR(255)
     )
     """
@@ -380,6 +381,9 @@ def get_police_dashboard():
     try:
         connection = pymysql.connect(**db_config)
         with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+            admin_latitude = float(request.args.get('latitude', 0))
+            admin_longitude = float(request.args.get('longitude', 0))
+            
             sql = """
                 SELECT id, type, description, latitude, longitude, timestamp, anonymous, media_url, area, severity,
                 CASE WHEN anonymous = 0 THEN user_info ELSE NULL END as user_info, status
@@ -388,7 +392,17 @@ def get_police_dashboard():
             """
             cursor.execute(sql)
             reports = cursor.fetchall()
-            return jsonify(reports)
+            
+            # Filter reports within 5km radius
+            filtered_reports = []
+            for report in reports:
+                report_location = (report['latitude'], report['longitude'])
+                admin_location = (admin_latitude, admin_longitude)
+                distance = geodesic(admin_location, report_location).kilometers
+                if distance <= 0.5:
+                    filtered_reports.append(report)
+            
+            return jsonify(filtered_reports)
     except Exception as e:
         print(f"Error fetching police dashboard reports: {e}")
         return jsonify({'error': 'Failed to fetch police dashboard reports'}), 500

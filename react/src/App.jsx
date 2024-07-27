@@ -16,6 +16,7 @@ function App() {
           It provides real-time updates on crime incidents, secure authentication for users, 
           interactive maps for visualizing crime hotspots, and powerful search tools for efficient data retrieval.
         </p>
+        
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
-import { Bar, Pie, Line } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 import '../styles/Dashboard.css';
 import { useUser } from "@clerk/clerk-react";
 
@@ -16,7 +16,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
 
 const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeTypes, severityFilter, setSeverityFilter }) => {
   return (
@@ -51,7 +50,7 @@ const Filters = ({ typeFilter, setTypeFilter, startDate, setStartDate, crimeType
   );
 };
 
-const Dashboard = ({ user }) => {  // Add user prop
+const Dashboard = ({ user }) => {
   const { user: userdata } = useUser();
   const [crimes, setCrimes] = useState([]);
   const [view, setView] = useState('dashboard');
@@ -60,15 +59,65 @@ const Dashboard = ({ user }) => {  // Add user prop
   const [severityFilter, setSeverityFilter] = useState('');
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [adminLocation, setAdminLocation] = useState(null);
+  const [solvedCrimes, setSolvedCrimes] = useState([]);
+  const [unsolvedCrimes, setUnsolvedCrimes] = useState([]);
 
   useEffect(() => {
-    fetchCrimes();
-  }, [typeFilter, startDate, severityFilter]);
+    fetch('http://localhost:5050/api/reports')
+      .then(response => response.json())
+      .then(data => {
+        console.log('Fetched data:', data);
+        const solved = data.filter(crime => crime.status === 'solved');
+        const unsolved = data.filter(crime => crime.status === 'active');
+        console.log('Solved crimes:', solved);
+        console.log('Unsolved crimes:', unsolved);
+        setSolvedCrimes(solved);
+        setUnsolvedCrimes(unsolved);
+      })
+      .catch(error => {
+        console.error('Error fetching reports:', error);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setAdminLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+        }
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (adminLocation) {
+      fetchCrimes();
+    }
+  }, [adminLocation, typeFilter, startDate, severityFilter]);
+
+  const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const fetchCrimes = async () => {
+    if (!adminLocation) return;
+
     try {
       const response = await axios.get('http://localhost:5050/api/police_dashboard', {
-        params: { type: typeFilter, startDate, severity: severityFilter },
+        params: { 
+          type: typeFilter, 
+          startDate, 
+          severity: severityFilter,
+          latitude: adminLocation.latitude,
+          longitude: adminLocation.longitude
+        },
       });
       setCrimes(response.data);
     } catch (error) {
@@ -80,15 +129,14 @@ const Dashboard = ({ user }) => {  // Add user prop
     if (window.confirm("Are you sure you want to mark this case as solved?")) {
       try {
         const solvedBy = userdata.username;
-        console.log(`Solved by: ${solvedBy}`);  // Debug log to check the email
+        console.log(`Solved by: ${solvedBy}`);
         await axios.put(`http://localhost:5050/api/solve_case/${id}`, { solvedBy });
-        fetchCrimes(); // Refresh the crime list
+        fetchCrimes();
       } catch (error) {
         console.error('Error solving case:', error);
       }
     }
   };
-
 
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -132,9 +180,23 @@ const Dashboard = ({ user }) => {  // Add user prop
     return acc;
   }, {});
 
-  const crimeDates = filteredCrimes.reduce((acc, crime) => {
-    const date = new Date(crime.timestamp).toLocaleDateString();
-    acc[date] = (acc[date] || 0) + 1;
+  const solvedCrimesCount = new Array(12).fill(0);
+  solvedCrimes.forEach(crime => {
+    const month = new Date(crime.timestamp).getMonth();
+    solvedCrimesCount[month]++;
+  });
+
+  const unsolvedCrimesCount = new Array(12).fill(0);
+  unsolvedCrimes.forEach(crime => {
+    const month = new Date(crime.timestamp).getMonth();
+    unsolvedCrimesCount[month]++;
+  });
+
+  console.log('Solved crimes count:', solvedCrimesCount);
+  console.log('Unsolved crimes count:', unsolvedCrimesCount);
+
+  const severityDistribution = filteredCrimes.reduce((acc, crime) => {
+    acc[crime.severity] = (acc[crime.severity] || 0) + 1;
     return acc;
   }, {});
 
@@ -166,15 +228,37 @@ const Dashboard = ({ user }) => {  // Add user prop
     ],
   };
 
-  const dateData = {
-    labels: Object.keys(crimeDates),
+  const statusOverTimeData = {
+    labels: labels,
     datasets: [
       {
-        label: 'Crimes Over Time',
-        data: Object.values(crimeDates),
-        backgroundColor: 'rgba(153, 102, 255, 0.6)',
-        borderColor: 'rgba(153, 102, 255, 1)',
-        fill: false,
+        label: 'Solved Crimes',
+        data: solvedCrimesCount,
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1,
+      },
+      {
+        label: 'Unsolved Crimes',
+        data: unsolvedCrimesCount,
+        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const severityData = {
+    labels: Object.keys(severityDistribution),
+    datasets: [
+      {
+        label: 'Severity Distribution',
+        data: Object.values(severityDistribution),
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.6)',
+          'rgba(255, 206, 86, 0.6)',
+          'rgba(75, 192, 192, 0.6)',
+        ],
       },
     ],
   };
@@ -252,14 +336,47 @@ const Dashboard = ({ user }) => {  // Add user prop
                 </div>
               </div>
               <div className="chart-container">
-                <h2>Crimes Over Time</h2>
+  <h2>Solved vs Unsolved Crimes Over Time</h2>
+  <div className="chart-wrapper">
+    <Bar 
+      data={statusOverTimeData} 
+      options={{ 
+        responsive: true, 
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+          }
+        },
+        scales: {
+          x: {
+            stacked: false,
+          },
+          y: {
+            stacked: false,
+            beginAtZero: true
+          }
+        }
+      }} 
+    />
+  </div>
+</div>
+                
+              <div className="chart-container">
+                <h2>Crime Severity Distribution</h2>
                 <div className="chart-wrapper">
-                  <Line data={dateData} options={{ 
+                  <Pie data={severityData} options={{ 
                     responsive: true, 
                     maintainAspectRatio: false,
                     plugins: {
                       legend: {
-                        display: false
+                        position: 'bottom',
+                        labels: {
+                          boxWidth: 10,
+                          font: {
+                            size: 10
+                          }
+                        }
                       }
                     }
                   }} />
